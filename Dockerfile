@@ -1,14 +1,20 @@
 FROM ollama/ollama:latest
 
 # Install Python och dependencies
-RUN apt-get update && apt-get install -y python3 python3-pip && \
-    rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    python3-venv \
+    && rm -rf /var/lib/apt/lists/*
+
+# Verify pip3 is installed
+RUN python3 -m pip --version || (apt-get update && apt-get install -y python3-pip && rm -rf /var/lib/apt/lists/*)
 
 WORKDIR /app
 COPY handler.py /app/handler.py
 COPY requirements.txt /app/requirements.txt
 
-RUN pip3 install --no-cache-dir runpod requests
+RUN python3 -m pip install --no-cache-dir runpod requests
 
 # Set environment variables
 ENV OLLAMA_MODEL=nocturne-swe
