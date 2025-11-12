@@ -13,10 +13,10 @@ RUN curl -fsSL https://ollama.com/install.sh | sh
 # Set working directory
 WORKDIR /app
 
-# Copy handler (adjust path if Dockerfile is in subdirectory)
-# If build context is repo root: COPY gpt-relay-server/handler.py
-# If build context is gpt-relay-server/: COPY handler.py
-COPY gpt-relay-server/handler.py /app/handler.py
+# Copy handler and requirements
+# Files are in repo root (not in gpt-relay-server/ subdirectory)
+COPY handler.py /app/handler.py
+COPY requirements.txt /app/requirements.txt
 
 # Install Python dependencies
 RUN pip install --no-cache-dir \
