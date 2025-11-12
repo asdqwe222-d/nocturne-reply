@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPT Relay Server Debug Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        h2 {
+            margin-top: 0;
+            color: #333;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            margin-top: 10px;
+        }
+        .error {
+            color: #e53935;
+            font-weight: bold;
+        }
+        .success {
+            color: #43a047;
+            font-weight: bold;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        textarea {
+            height: 100px;
+        }
+    </style>
+</head>
+<body>
+    <h1>GPT Relay Server Debug Test</h1>
+    
+    <div class="card">
+        <h2>1. Server Connection Test</h2>
+        <button id="pingBtn">Ping Server</button>
+        <pre id="pingResult">Results will appear here...</pre>
+    </div>
+    
+    <div class="card">
+        <h2>2. Mock Generate Test</h2>
+        <textarea id="mockPrompt">This is a test prompt to check if the mock endpoint works.</textarea>
+        <button id="mockBtn">Test Mock Endpoint</button>
+        <pre id="mockResult">Results will appear here...</pre>
+    </div>
+    
+    <div class="card">
+        <h2>3. Real Generate Test</h2>
+        <textarea id="realPrompt">This is a test prompt for the real generate endpoint.</textarea>
+        <button id="realBtn">Test Real Endpoint</button>
+        <pre id="realResult">Results will appear here...</pre>
+    </div>
+    
+    <div class="card">
+        <h2>4. Network Diagnostics</h2>
+        <p>Server URL: <input type="text" id="serverUrl" value="http://localhost:3000"></p>
+        <button id="diagBtn">Run Network Diagnostics</button>
+        <pre id="diagResult">Results will appear here...</pre>
+    </div>
+
+    <script>
+        // Helper function to display results
+        function showResult(elementId, data, isError = false) {
+            const element = document.getElementById(elementId);
+            if (isError) {
+                element.innerHTML = `<span class="error">ERROR:</span> ${typeof data === 'object' ? JSON.stringify(data, null, 2) : data}`;
+            } else {
+                element.innerHTML = `<span class="success">SUCCESS:</span>\n${typeof data === 'object' ? JSON.stringify(data, null, 2) : data}`;
+            }
+        }
+        
+        // Test 1: Ping the server
+        document.getElementById('pingBtn').addEventListener('click', async () => {
+            const pingResult = document.getElementById('pingResult');
+            pingResult.textContent = 'Connecting to server...';
+            
+            try {
+                const serverUrl = document.getElementById('serverUrl').value;
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+                
+                const response = await fetch(`${serverUrl}/`, { 
+                    signal: controller.signal 
+                });
+                clearTimeout(timeoutId);
+                
+                if (response.ok) {
+                    const text = await response.text();
+                    showResult('pingResult', text);
+                } else {
+                    showResult('pingResult', `Status: ${response.status} ${response.statusText}`, true);
+                }
+            } catch (error) {
+                let errorMessage = error.toString();
+                if (error.name === 'AbortError') {
+                    errorMessage = 'Connection timed out after 5 seconds. The server might be down or not accessible.';
+                }
+                showResult('pingResult', errorMessage, true);
+                
+                // Additional diagnostic info
+                pingResult.innerHTML += '\n\nPossible issues:\n';
+                pingResult.innerHTML += '- Server is not running\n';
+                pingResult.innerHTML += '- Incorrect server URL\n';
+                pingResult.innerHTML += '- Firewall blocking the connection\n';
+                pingResult.innerHTML += '- CORS issues (check browser console)\n';
+            }
+        });
+        
+        // Test 2: Test mock generate endpoint
+        document.getElementById('mockBtn').addEventListener('click', async () => {
+            const mockResult = document.getElementById('mockResult');
+            mockResult.textContent = 'Sending request to mock endpoint...';
+            
+            try {
+                const serverUrl = document.getElementById('serverUrl').value;
+                const prompt = document.getElementById('mockPrompt').value;
+                
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000);
+                
+                const response = await fetch(`${serverUrl}/mock-generate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ prompt }),
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                
+                const data = await response.json();
+                showResult('mockResult', data);
+            } catch (error) {
+                let errorMessage = error.toString();
+                if (error.name === 'AbortError') {
+                    errorMessage = 'Request timed out after 10 seconds.';
+                }
+                showResult('mockResult', errorMessage, true);
+            }
+        });
+        
+        // Test 3: Test real generate endpoint
+        document.getElementById('realBtn').addEventListener('click', async () => {
+            const realResult = document.getElementById('realResult');
+            realResult.textContent = 'Sending request to real endpoint...';
+            
+            try {
+                const serverUrl = document.getElementById('serverUrl').value;
+                const prompt = document.getElementById('realPrompt').value;
+                
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 30000); // Longer timeout for real API
+                
+                const response = await fetch(`${serverUrl}/generate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ prompt }),
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                
+                const data = await response.json();
+                showResult('realResult', data);
+            } catch (error) {
+                let errorMessage = error.toString();
+                if (error.name === 'AbortError') {
+                    errorMessage = 'Request timed out after 30 seconds.';
+                }
+                showResult('realResult', errorMessage, true);
+            }
+        });
+        
+        // Test 4: Network diagnostics
+        document.getElementById('diagBtn').addEventListener('click', async () => {
+            const diagResult = document.getElementById('diagResult');
+            diagResult.textContent = 'Running network diagnostics...';
+            
+            const serverUrl = document.getElementById('serverUrl').value;
+            let results = `Testing connection to: ${serverUrl}\n\n`;
+            
+            // Test basic connectivity with fetch API
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+                
+                results += "1. Testing basic connectivity... ";
+                const response = await fetch(`${serverUrl}/`, { 
+                    signal: controller.signal,
+                    mode: 'cors'
+                });
+                clearTimeout(timeoutId);
+                
+                results += `✓ Connected (Status: ${response.status})\n`;
+                
+                // Check CORS headers
+                results += "2. Checking CORS headers... ";
+                const corsHeaders = {
+                    'Access-Control-Allow-Origin': response.headers.get('Access-Control-Allow-Origin'),
+                    'Access-Control-Allow-Methods': response.headers.get('Access-Control-Allow-Methods'),
+                    'Access-Control-Allow-Headers': response.headers.get('Access-Control-Allow-Headers')
+                };
+                
+                if (corsHeaders['Access-Control-Allow-Origin']) {
+                    results += "✓ CORS headers present\n";
+                    results += `   - Allow-Origin: ${corsHeaders['Access-Control-Allow-Origin']}\n`;
+                    results += `   - Allow-Methods: ${corsHeaders['Access-Control-Allow-Methods'] || 'not specified'}\n`;
+                    results += `   - Allow-Headers: ${corsHeaders['Access-Control-Allow-Headers'] || 'not specified'}\n`;
+                } else {
+                    results += "⚠ No CORS headers found\n";
+                }
+                
+                // Test POST request with options
+                results += "3. Testing POST preflight request... ";
+                const optionsResponse = await fetch(`${serverUrl}/generate`, {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Origin': window.location.origin,
+                        'Access-Control-Request-Method': 'POST',
+                        'Access-Control-Request-Headers': 'Content-Type'
+                    }
+                });
+                
+                if (optionsResponse.ok) {
+                    results += "✓ Preflight request accepted\n";
+                } else {
+                    results += `⚠ Preflight returned status ${optionsResponse.status}\n`;
+                }
+                
+                // Additional information
+                results += "\nServer information:\n";
+                const text = await response.text();
+                results += `- Server response: ${text}\n`;
+                results += `- Your origin: ${window.location.origin}\n`;
+                
+                showResult('diagResult', results);
+            } catch (error) {
+                results += `✗ Failed: ${error.message}\n\n`;
+                results += "Troubleshooting steps:\n";
+                results += "1. Verify the server is running\n";
+                results += "2. Check for firewall or network restrictions\n";
+                results += "3. Make sure the URL is correct\n";
+                results += "4. Check browser console for additional errors\n";
+                results += "5. Try running the server with explicit CORS settings\n";
+                
+                showResult('diagResult', results, true);
+            }
+        });
+        
+        // Auto-run ping test on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                document.getElementById('pingBtn').click();
+            }, 500);
+        });
+    </script>
+</body>
+</html> 

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feedback Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .card {
+            background-color: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 1.5rem;
+            transition: box-shadow 0.3s;
+        }
+        .card:hover {
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .stat-value {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: rgb(79, 70, 229);
+        }
+        .stat-label {
+            font-size: 0.875rem;
+            color: rgb(107, 114, 128);
+        }
+        /* Fix chart box expansion */
+        canvas {
+            height: 250px !important;
+            max-height: 250px;
+        }
+        /* Lower dashboard z-index */
+        body, .container {
+            z-index: 1;
+            position: relative;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-800">Feedback Dashboard</h1>
+            <p class="text-gray-600">Analysera och förbättra svarskvaliteten</p>
+        </header>
+
+        <!-- Statistik översikt -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div class="card">
+                <div class="stat-value" id="totalResponses">0</div>
+                <div class="stat-label">Totalt antal svar</div>
+            </div>
+            <div class="card">
+                <div class="stat-value" id="successRate">0%</div>
+                <div class="stat-label">Success Rate</div>
+            </div>
+            <div class="card">
+                <div class="stat-value" id="avgLength">0</div>
+                <div class="stat-label">Genomsnittlig längd</div>
+            </div>
+            <div class="card">
+                <div class="stat-value" id="bestPattern">-</div>
+                <div class="stat-label">Bästa mönster</div>
+            </div>
+        </div>
+
+        <!-- Grafer -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+            <div class="card">
+                <h2 class="text-xl font-semibold mb-4">Feedback över tid</h2>
+                <canvas id="timeChart" style="height:250px;max-height:250px;"></canvas>
+            </div>
+            <div class="card">
+                <h2 class="text-xl font-semibold mb-4">Mönsterfördelning</h2>
+                <canvas id="patternChart" style="height:250px;max-height:250px;"></canvas>
+            </div>
+        </div>
+
+        <!-- Senaste feedback -->
+        <div class="card mb-8">
+            <h2 class="text-xl font-semibold mb-4">Senaste feedback</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full" id="feedbackTable">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tid</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rating</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Svar</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mönster</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200" id="feedbackTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Mönsteranalys -->
+        <div class="card">
+            <h2 class="text-xl font-semibold mb-4">Mönsteranalys</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="patternAnalysis">
+            </div>
+        </div>
+
+        <!-- Toppmönster -->
+        <div class="card mb-8">
+            <h2 class="text-xl font-semibold mb-4">Toppmönster (Top Patterns)</h2>
+            <ul id="topPatternsList" class="list-disc pl-6 text-gray-700"></ul>
+        </div>
+    </div>
+
+    <script>
+        // Uppdatera data var 30:e sekund
+        setInterval(fetchData, 30000);
+        setInterval(updateTopPatterns, 30000);
+
+        // Initial datahämtning
+        fetchData();
+        updateTopPatterns();
+
+        async function fetchData() {
+            try {
+                const response = await fetch('/feedback/analytics');
+                const data = await response.json();
+                updateDashboard(data);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+            }
+        }
+
+        async function updateTopPatterns() {
+            try {
+                const res = await fetch('/feedback/top-patterns');
+                const patterns = await res.json();
+                document.getElementById('topPatternsList').innerHTML = patterns.map(
+                    p => `<li>${p.pattern} <span class='text-xs text-gray-500'>(Score: ${Math.round(p.score)}, Success: ${p.success}/${p.total})</span></li>`
+                ).join('');
+            } catch (error) {
+                document.getElementById('topPatternsList').innerHTML = '<li>Kunde inte hämta toppmönster.</li>';
+            }
+        }
+
+        function updateDashboard(data) {
+            // Uppdatera statistik
+            document.getElementById('totalResponses').textContent = data.totalResponses;
+            document.getElementById('successRate').textContent = Math.round(data.successRate) + '%';
+            
+            // Uppdatera grafer
+            updateTimeChart(data.recentTrends);
+            updatePatternChart(data.bestPatterns);
+
+            // Uppdatera mönsteranalys
+            updatePatternAnalysis(data.bestPatterns);
+        }
+
+        function updateTimeChart(trends) {
+            const ctx = document.getElementById('timeChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: trends.map(t => new Date(t.timestamp).toLocaleDateString()),
+                    datasets: [{
+                        label: 'Success Rate',
+                        data: trends.map(t => t.successRate),
+                        borderColor: 'rgb(99, 102, 241)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        function updatePatternChart(patterns) {
+            const ctx = document.getElementById('patternChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: patterns.map(p => p.pattern),
+                    datasets: [{
+                        label: 'Success Rate (%)',
+                        data: patterns.map(p => p.successRate),
+                        backgroundColor: 'rgb(99, 102, 241)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        function updatePatternAnalysis(patterns) {
+            const container = document.getElementById('patternAnalysis');
+            container.innerHTML = patterns.map(pattern => `
+                <div class="bg-gray-50 rounded p-4">
+                    <h3 class="font-semibold text-lg mb-2">${pattern.pattern}</h3>
+                    <div class="text-sm text-gray-600">
+                        Success Rate: ${Math.round(pattern.successRate)}%
+                    </div>
+                </div>
+            `).join('');
+        }
+    </script>
+</body>
+</html> 

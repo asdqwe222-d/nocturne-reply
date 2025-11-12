@@ -1,0 +1,21 @@
+{
+  "tests": [
+    {
+      "name": "Basic Ollama Test",
+      "input": {
+        "model": "nocturne-swe",
+        "prompt": "Say hello in Swedish",
+        "system": "You are a helpful assistant.",
+        "stream": false,
+        "options": {
+          "temperature": 0.7,
+          "num_predict": 50
+        }
+      },
+      "expected_output": {
+        "response": "string"
+      }
+    }
+  ]
+}
+

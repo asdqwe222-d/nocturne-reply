@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPT Relay Server CORS Debug</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+            background-color: #f9f9f9;
+        }
+        .status-card {
+            margin-top: 30px;
+            background-color: #e8f5e9;
+        }
+        h2 {
+            margin-top: 0;
+            color: #333;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            margin-top: 10px;
+        }
+        .error {
+            color: #e53935;
+            font-weight: bold;
+        }
+        .success {
+            color: #43a047;
+            font-weight: bold;
+        }
+        #serverStatus {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        #troubleshootingTips {
+            display: none;
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #f44336;
+            border-radius: 4px;
+            background-color: #ffebee;
+        }
+        #troubleshootingTips h3 {
+            margin-top: 0;
+            color: #d32f2f;
+        }
+        #openBrowserBtn {
+            background-color: #2196F3;
+        }
+        .test-result {
+            min-height: 50px;
+        }
+    </style>
+</head>
+<body>
+    <h1>GPT Relay Server CORS Debug</h1>
+    
+    <div class="card">
+        <h2>Server Connection Test</h2>
+        <p>Testing connection to <code>http://localhost:3000</code></p>
+        <div id="serverStatus">Checking server status...</div>
+        <div id="serverDetails"></div>
+        <button id="openBrowserBtn" disabled>Open Test Page in Browser</button>
+    </div>
+
+    <div id="troubleshootingTips">
+        <h3>Troubleshooting Tips</h3>
+        <ol>
+            <li><strong>Server not running:</strong> Make sure the server is started by running <code>cd gpt-relay-server && node server.js</code> in a terminal.</li>
+            <li><strong>CORS issues:</strong> When accessing from a <code>file://</code> URL, browsers enforce security restrictions. Try one of these solutions:
+                <ul>
+                    <li>Open the test-prompt.html file in a web server instead of directly from file system</li>
+                    <li>Update your server's CORS settings in the .env file to allow all origins</li>
+                    <li>Click the "Open Test Page in Browser" button above (once server is running)</li>
+                </ul>
+            </li>
+            <li><strong>Port conflict:</strong> Something else might be using port 3000. Check if the server started without errors.</li>
+            <li><strong>Firewall blocking:</strong> Your firewall might be blocking connections to localhost:3000.</li>
+        </ol>
+    </div>
+
+    <div class="card status-card">
+        <h2>Server Diagnostic Information</h2>
+        <div class="test-result" id="diagnosticInfo">Running diagnostics...</div>
+        <button id="refreshBtn">Refresh Status</button>
+    </div>
+
+    <script>
+        // DOM elements
+        const serverStatus = document.getElementById('serverStatus');
+        const serverDetails = document.getElementById('serverDetails');
+        const troubleshootingTips = document.getElementById('troubleshootingTips');
+        const openBrowserBtn = document.getElementById('openBrowserBtn');
+        const diagnosticInfo = document.getElementById('diagnosticInfo');
+        const refreshBtn = document.getElementById('refreshBtn');
+
+        // Initialize
+        checkServerStatus();
+
+        // Event listeners
+        refreshBtn.addEventListener('click', checkServerStatus);
+        openBrowserBtn.addEventListener('click', () => {
+            window.open('http://localhost:3000/test-prompt.html', '_blank');
+        });
+
+        // Function to check server status
+        function checkServerStatus() {
+            serverStatus.textContent = "Checking server status...";
+            serverStatus.className = "";
+            diagnosticInfo.textContent = "Running diagnostics...";
+            serverDetails.textContent = "";
+            openBrowserBtn.disabled = true;
+            troubleshootingTips.style.display = "none";
+
+            // Create an image element to test if server is responding
+            // This works around CORS issues that affect fetch/XHR
+            const img = new Image();
+            
+            // Set a timeout for the check
+            const timeout = setTimeout(() => {
+                serverStatus.textContent = "Server not responding";
+                serverStatus.className = "error";
+                troubleshootingTips.style.display = "block";
+                diagnosticInfo.innerHTML = `<span class="error">ERROR:</span> Connection timed out after 5 seconds. The server might be down or not accessible.`;
+            }, 5000);
+
+            // Check if server is up using an image request
+            // Even if it fails, it will trigger one of our handlers
+            img.onload = function() {
+                clearTimeout(timeout);
+                serverStatus.textContent = "Server is running!";
+                serverStatus.className = "success";
+                openBrowserBtn.disabled = false;
+                serverDetails.textContent = "The server responded to our test request.";
+                
+                // Add diagnostic details
+                diagnosticInfo.innerHTML = `
+                    <span class="success">SUCCESS:</span> Server detected at http://localhost:3000
+                    <br><br>
+                    <strong>Next steps:</strong>
+                    <ol>
+                        <li>Click "Open Test Page in Browser" to test the server in a proper browser context</li>
+                        <li>If you're using the Tampermonkey script, make sure it's configured to use http://localhost:3000/generate as the endpoint</li>
+                    </ol>
+                `;
+            };
+
+            img.onerror = function() {
+                clearTimeout(timeout);
+                
+                // Make a secondary check using a dynamically loaded script
+                // This approach can also bypass some CORS restrictions
+                const script = document.createElement('script');
+                script.src = `http://localhost:3000/?callback=handleServerResponse&time=${new Date().getTime()}`;
+                const scriptTimeout = setTimeout(() => {
+                    script.onerror(); // Manually trigger error if timeout
+                }, 3000);
+                
+                script.onload = function() {
+                    clearTimeout(scriptTimeout);
+                    // The handleServerResponse function will be called if server responds
+                    // with proper JSONP format, but even if not, we detect the server is running
+                    serverStatus.textContent = "Server is running!";
+                    serverStatus.className = "success";
+                    openBrowserBtn.disabled = false;
+                    serverDetails.textContent = "The server is running but might not support JSONP requests.";
+                    
+                    diagnosticInfo.innerHTML = `
+                        <span class="success">SUCCESS:</span> Server detected at http://localhost:3000
+                        <br><br>
+                        <strong>Next steps:</strong>
+                        <ol>
+                            <li>Click "Open Test Page in Browser" to test the server in a proper browser context</li>
+                            <li>If you're using the Tampermonkey script, make sure it's configured to use http://localhost:3000/generate as the endpoint</li>
+                        </ol>
+                    `;
+                };
+                
+                script.onerror = function() {
+                    clearTimeout(scriptTimeout);
+                    // Now we try one more approach - a dynamic iframe
+                    checkServerWithIframe();
+                };
+                
+                document.head.appendChild(script);
+            };
+            
+            img.src = `http://localhost:3000/favicon.ico?t=${new Date().getTime()}`;
+        }
+        
+        function checkServerWithIframe() {
+            // Last attempt - try with an iframe
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            
+            const iframeTimeout = setTimeout(() => {
+                serverNotResponding();
+                document.body.removeChild(iframe);
+            }, 3000);
+            
+            iframe.onload = function() {
+                clearTimeout(iframeTimeout);
+                serverStatus.textContent = "Server is running!";
+                serverStatus.className = "success";
+                openBrowserBtn.disabled = false;
+                serverDetails.textContent = "The server is running but has restrictive CORS settings.";
+                document.body.removeChild(iframe);
+                
+                diagnosticInfo.innerHTML = `
+                    <span class="success">SUCCESS:</span> Server detected at http://localhost:3000
+                    <br><br>
+                    <strong>CORS Issue Detected:</strong> Your server is running, but the browser is blocking direct API requests due to CORS restrictions when accessing from file:// URLs.
+                    <br><br>
+                    <strong>Solutions:</strong>
+                    <ol>
+                        <li>Click "Open Test Page in Browser" to test in a proper browser context</li>
+                        <li>Add "*" to ALLOWED_ORIGINS in your .env file and restart the server</li>
+                        <li>Use the Tampermonkey script which bypasses these restrictions</li>
+                    </ol>
+                `;
+            };
+            
+            iframe.onerror = function() {
+                clearTimeout(iframeTimeout);
+                serverNotResponding();
+                document.body.removeChild(iframe);
+            };
+            
+            document.body.appendChild(iframe);
+            iframe.src = `http://localhost:3000/?t=${new Date().getTime()}`;
+        }
+        
+        function serverNotResponding() {
+            serverStatus.textContent = "Server not responding";
+            serverStatus.className = "error";
+            troubleshootingTips.style.display = "block";
+            
+            diagnosticInfo.innerHTML = `
+                <span class="error">ERROR:</span> Could not connect to the server at http://localhost:3000
+                <br><br>
+                <strong>Possible issues:</strong>
+                <ul>
+                    <li>The server is not running - start it with <code>node server.js</code></li>
+                    <li>The server is running on a different port - check your .env file</li>
+                    <li>A firewall is blocking connections to localhost</li>
+                </ul>
+                <br>
+                <strong>From the terminal output, we can see the server is running:</strong>
+                <pre>TCP    [::]:3000              [::]:0                 LISTENING       19692</pre>
+                <br>
+                <strong>This means the issue might be:</strong>
+                <ol>
+                    <li>The server is listening but not responding correctly</li>
+                    <li>The browser security settings are blocking the connection</li>
+                </ol>
+                <br>
+                Try running this command in your terminal to check if the server responds:
+                <pre>curl http://localhost:3000</pre>
+            `;
+        }
+        
+        // In case the server responds with JSONP format
+        window.handleServerResponse = function(data) {
+            serverStatus.textContent = "Server is running!";
+            serverStatus.className = "success";
+            openBrowserBtn.disabled = false;
+            serverDetails.textContent = "The server successfully responded to our test.";
+            
+            diagnosticInfo.innerHTML = `
+                <span class="success">SUCCESS:</span> Server is fully operational!
+                <br><br>
+                <strong>Server responded with:</strong>
+                <pre>${JSON.stringify(data || "GPT Relay Server is running", null, 2)}</pre>
+                <br>
+                <strong>Everything looks good!</strong> You should now be able to:
+                <ol>
+                    <li>Use the Tampermonkey script with this server</li>
+                    <li>Test API calls through the test page in a browser</li>
+                </ol>
+            `;
+        };
+    </script>
+</body>
+</html> 

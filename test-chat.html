@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nocturne Reply Forge - Test Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f0f10;
+            color: #e4e4e7;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #a855f7;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .info {
+            background: #1a1a1b;
+            border: 1px solid #2d2d30;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .info h2 {
+            color: #ec4899;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+        
+        .info p {
+            color: #a1a1aa;
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+        
+        .chat-container {
+            background: #1a1a1b;
+            border: 1px solid #2d2d30;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            min-height: 400px;
+        }
+        
+        .message {
+            background: #252526;
+            border: 1px solid #2d2d30;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            line-height: 1.5;
+        }
+        
+        .message.user {
+            border-left: 3px solid #3b82f6;
+        }
+        
+        .message.agent {
+            border-left: 3px solid #a855f7;
+        }
+        
+        .message-label {
+            font-size: 11px;
+            color: #71717a;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+        
+        .input-container {
+            background: #1a1a1b;
+            border: 1px solid #2d2d30;
+            border-radius: 12px;
+            padding: 20px;
+        }
+        
+        textarea {
+            width: 100%;
+            background: #252526;
+            border: 1px solid #2d2d30;
+            border-radius: 8px;
+            padding: 12px;
+            color: #e4e4e7;
+            font-family: inherit;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #a855f7;
+        }
+        
+        button {
+            background: #a855f7;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: all 0.2s;
+        }
+        
+        button:hover {
+            background: #9333ea;
+            transform: translateY(-1px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .status {
+            background: #10b981;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            display: inline-block;
+            font-size: 12px;
+            font-weight: 500;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌙 Nocturne Reply Forge - Test Chat</h1>
+        
+        <div class="status">✅ Tampermonkey Script Active</div>
+        
+        <div class="info">
+            <h2>📋 Instructions</h2>
+            <p><strong>1.</strong> Make sure Ollama is running: <code>ollama serve</code></p>
+            <p><strong>2.</strong> Make sure Node server is running: <code>node server.js</code> (port 3000)</p>
+            <p><strong>3.</strong> Click "⚡ Generate Reply" in the floating panel (right side)</p>
+            <p><strong>4.</strong> Check browser console (F12) for detailed logs</p>
+            <p><strong>5.</strong> Test feedback buttons: 👍 (good) / 👎 (bad)</p>
+        </div>
+        
+        <div class="chat-container">
+            <h3 style="color: #ec4899; margin-bottom: 15px;">💬 Simulated Chat History</h3>
+            
+            <div class="message user">
+                <div class="message-label">User</div>
+                <div>Hej, hur är läget?</div>
+            </div>
+            
+            <div class="message agent">
+                <div class="message-label">Agent (You)</div>
+                <div>Hej! Det är bra, tack. Vad gör du?</div>
+            </div>
+            
+            <div class="message user">
+                <div class="message-label">User</div>
+                <div>Bara hemma och kollar på film. Du då?</div>
+            </div>
+            
+            <div class="message agent">
+                <div class="message-label">Agent (You)</div>
+                <div>Låter mysigt. Jag är också hemma, lite tråkigt faktiskt.</div>
+            </div>
+            
+            <div class="message user">
+                <div class="message-label">User</div>
+                <div>Saknar närhet ikväll, vad gör du?</div>
+            </div>
+            
+            <div class="message agent">
+                <div class="message-label">Agent (You)</div>
+                <div style="color: #71717a; font-style: italic;">[Your reply will appear here after clicking "📤 Skicka"]</div>
+            </div>
+        </div>
+        
+        <div class="input-container">
+            <label style="display: block; margin-bottom: 8px; color: #a1a1aa; font-size: 13px;">
+                Type a message:
+            </label>
+            <textarea placeholder="Type a message…" id="chat-input"></textarea>
+            <button type="submit" aria-label="Send">Send</button>
+        </div>
+        
+        <div class="info" style="margin-top: 20px;">
+            <h2>🔍 Expected Behavior</h2>
+            <p><strong>Panel appears:</strong> Floating panel on the right side</p>
+            <p><strong>Click Generate:</strong> Button shows "Analyzing..." → "Server generating..." → "Ready!"</p>
+            <p><strong>3 Options appear:</strong> Each with Score badge (🟢 8.5+, 🔵 7.5-8.4, 🟠 6.5-7.4)</p>
+            <p><strong>Feedback buttons:</strong> 👍 for good, 👎 for bad (auto-regenerates)</p>
+            <p><strong>Send button:</strong> 📤 Skicka - inserts reply into chat input</p>
+        </div>
+        
+        <div class="info" style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3);">
+            <h2 style="color: #f87171;">⚠️ Troubleshooting</h2>
+            <p><strong>Panel not showing?</strong> Check console (F12) for script errors</p>
+            <p><strong>"Server error"?</strong> Make sure Node server is running on port 3000</p>
+            <p><strong>"Model not found"?</strong> Make sure Ollama is running and nocturne-swe model exists</p>
+            <p><strong>Timeout?</strong> Pre-load Ollama model: <code>ollama run nocturne-swe</code></p>
+        </div>
+    </div>
+    
+    <script>
+        console.log('%c📄 Test Chat Page Loaded', 'color:#10b981;font-weight:bold;font-size:14px');
+        console.log('Load this page with the userscript enabled.');
+        
+        // Add some test interactions
+        const input = document.getElementById('chat-input');
+        const button = document.querySelector('button[type="submit"]');
+        
+        button.addEventListener('click', (e) => {
+            e.preventDefault();
+            if(input.value.trim()) {
+                console.log('Message sent:', input.value);
+                alert('Message: ' + input.value + '\n\nNow click "⚡ Generate Reply" in the Nocturne panel!');
+            }
+        });
+    </script>
+</body>
+</html>
+

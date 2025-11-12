@@ -1,0 +1,17 @@
+{
+  "name": "nocturne-ollama-serverless",
+  "display_name": "Nocturne Ollama Serverless",
+  "description": "Ollama inference server for Nocturne Reply Forge - generates flirty Swedish chat replies",
+  "repository": "https://github.com/YOUR_USERNAME/nocturne-reply-forge",
+  "docker_image": "",
+  "docker_command": "python /app/handler.py",
+  "container_disk_in_gb": 10,
+  "volume_in_gb": 0,
+  "volume_mount_path": "/workspace",
+  "ports": "11434/http",
+  "env": {
+    "OLLAMA_MODEL": "nocturne-swe",
+    "OLLAMA_HOST": "0.0.0.0:11434"
+  }
+}
+

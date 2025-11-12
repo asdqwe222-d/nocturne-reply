@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPT Relay Test Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+        }
+        textarea {
+            width: 100%;
+            min-height: 120px;
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 14px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #responseContainer {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+        }
+        .hidden {
+            display: none;
+        }
+        .error {
+            color: #d32f2f;
+            font-weight: bold;
+        }
+        #historyContainer {
+            margin-top: 30px;
+            border-top: 1px solid #ddd;
+            padding-top: 20px;
+        }
+        .history-item {
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            margin-bottom: 15px;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        .history-item .timestamp {
+            color: #666;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+        .history-item .prompt,
+        .history-item .reply {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+        }
+        .history-item .prompt {
+            background-color: #e3f2fd;
+        }
+        .history-item .reply {
+            background-color: #e8f5e9;
+        }
+        .loading {
+            margin: 20px 0;
+            text-align: center;
+            color: #666;
+            font-style: italic;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            border-bottom: none;
+            margin-right: 5px;
+            border-radius: 4px 4px 0 0;
+            background-color: #f1f1f1;
+        }
+        .tab.active {
+            background-color: white;
+            border-color: #ddd;
+            position: relative;
+            bottom: -1px;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <h1>GPT Relay Test Tool</h1>
+    
+    <div class="tabs">
+        <div class="tab active" data-tab="test">Test Prompt</div>
+        <div class="tab" data-tab="history">View History</div>
+    </div>
+    
+    <div id="testTab" class="tab-content active">
+        <h2>Send a Test Prompt</h2>
+        <p>Enter your prompt below to see how the GPT model would respond based on your system configuration:</p>
+        
+        <textarea id="promptInput" placeholder="Enter your prompt here..."></textarea>
+        
+        <div>
+            <button id="sendBtn">Send to Real API</button>
+            <button id="mockBtn">Send to Mock Endpoint</button>
+        </div>
+        
+        <div id="loadingIndicator" class="loading hidden">
+            Generating response...
+        </div>
+        
+        <div id="responseContainer" class="hidden">
+            <h3>Response:</h3>
+            <div id="responseText"></div>
+        </div>
+    </div>
+    
+    <div id="historyTab" class="tab-content">
+        <h2>Conversation History</h2>
+        <p>Most recent conversations appear at the top. Refresh to see the latest.</p>
+        
+        <div>
+            <button id="refreshHistoryBtn">Refresh History</button>
+            <button id="clearHistoryBtn" style="background-color: #f44336;">Clear All History</button>
+            <input type="number" id="limitInput" placeholder="Limit" value="10" min="1" max="100" style="width: 60px; padding: 8px; margin-left: 10px;">
+        </div>
+        
+        <div id="historyLoadingIndicator" class="loading hidden">
+            Loading history...
+        </div>
+        
+        <div id="historyContainer"></div>
+    </div>
+
+    <script>
+        // DOM elements
+        const promptInput = document.getElementById('promptInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const mockBtn = document.getElementById('mockBtn');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const responseContainer = document.getElementById('responseContainer');
+        const responseText = document.getElementById('responseText');
+        const historyContainer = document.getElementById('historyContainer');
+        const historyLoadingIndicator = document.getElementById('historyLoadingIndicator');
+        const refreshHistoryBtn = document.getElementById('refreshHistoryBtn');
+        const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+        const limitInput = document.getElementById('limitInput');
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+        
+        // Handle tab switching
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Remove active class from all tabs and contents
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+                
+                // Add active class to clicked tab and corresponding content
+                tab.classList.add('active');
+                const tabName = tab.getAttribute('data-tab');
+                document.getElementById(tabName + 'Tab').classList.add('active');
+                
+                // Load history if history tab is activated
+                if (tabName === 'history') {
+                    loadHistory();
+                }
+            });
+        });
+        
+        // Send prompt to server
+        async function sendPrompt(isMock = false) {
+            const prompt = promptInput.value.trim();
+            if (!prompt) {
+                alert('Please enter a prompt');
+                return;
+            }
+            
+            // Show loading indicator
+            loadingIndicator.classList.remove('hidden');
+            responseContainer.classList.add('hidden');
+            
+            try {
+                const endpoint = isMock ? '/mock-generate' : '/generate';
+                const response = await fetch(`http://localhost:3000${endpoint}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ prompt })
+                });
+                
+                const data = await response.json();
+                
+                // Display response
+                responseText.textContent = data.reply || 'No response received';
+                if (data.error) {
+                    responseText.classList.add('error');
+                    responseText.textContent = `Error: ${data.error}\n${data.reply || ''}`;
+                } else {
+                    responseText.classList.remove('error');
+                }
+                
+                responseContainer.classList.remove('hidden');
+            } catch (error) {
+                responseText.textContent = `Error: ${error.message}`;
+                responseText.classList.add('error');
+                responseContainer.classList.remove('hidden');
+            } finally {
+                loadingIndicator.classList.add('hidden');
+            }
+        }
+        
+        // Load conversation history
+        async function loadHistory() {
+            historyContainer.innerHTML = '';
+            historyLoadingIndicator.classList.remove('hidden');
+            
+            try {
+                const limit = parseInt(limitInput.value) || 10;
+                const response = await fetch(`http://localhost:3000/history?limit=${limit}`);
+                const data = await response.json();
+                
+                if (data.history && data.history.length > 0) {
+                    data.history.forEach(item => {
+                        const historyItem = document.createElement('div');
+                        historyItem.className = 'history-item';
+                        
+                        // Format the timestamp
+                        const timestamp = new Date(item.timestamp);
+                        const formattedDate = timestamp.toLocaleString();
+                        
+                        historyItem.innerHTML = `
+                            <div class="timestamp">${formattedDate}${item.mock ? ' (Mock)' : ''}</div>
+                            <h4>Prompt:</h4>
+                            <div class="prompt">${escapeHtml(item.prompt)}</div>
+                            <h4>Reply:</h4>
+                            <div class="reply ${item.error ? 'error' : ''}">${escapeHtml(item.reply)}</div>
+                        `;
+                        
+                        historyContainer.appendChild(historyItem);
+                    });
+                } else {
+                    historyContainer.innerHTML = '<p>No conversation history found.</p>';
+                }
+            } catch (error) {
+                historyContainer.innerHTML = `<p class="error">Error loading history: ${error.message}</p>`;
+            } finally {
+                historyLoadingIndicator.classList.add('hidden');
+            }
+        }
+        
+        // Clear all history
+        async function clearHistory() {
+            if (!confirm('Are you sure you want to clear all conversation history? This cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                await fetch('http://localhost:3000/clear-history', {
+                    method: 'POST'
+                });
+                
+                alert('History cleared successfully');
+                loadHistory();
+            } catch (error) {
+                alert(`Error clearing history: ${error.message}`);
+            }
+        }
+        
+        // Helper function to escape HTML
+        function escapeHtml(unsafe) {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+        
+        // Event listeners
+        sendBtn.addEventListener('click', () => sendPrompt(false));
+        mockBtn.addEventListener('click', () => sendPrompt(true));
+        refreshHistoryBtn.addEventListener('click', loadHistory);
+        clearHistoryBtn.addEventListener('click', clearHistory);
+        
+        // Allow sending with Enter key
+        promptInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                sendPrompt(false);
+            }
+        });
+    </script>
+</body>
+</html> 

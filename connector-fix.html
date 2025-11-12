@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPT Relay Server Connection Fix</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+            background-color: #f9f9f9;
+        }
+        h2 {
+            margin-top: 0;
+            color: #333;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            margin-top: 10px;
+            white-space: pre-wrap;
+        }
+        .error {
+            color: #e53935;
+            font-weight: bold;
+        }
+        .success {
+            color: #43a047;
+            font-weight: bold;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+            margin: 10px 0;
+            padding: 10px;
+            font-family: monospace;
+        }
+        .highlight {
+            background-color: #fff9c4;
+            padding: 2px 4px;
+            border-radius: 2px;
+        }
+        .code-block {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>GPT Relay Server Connection Fix</h1>
+    
+    <div class="card">
+        <h2>The Problem</h2>
+        <p>You're encountering a CORS (Cross-Origin Resource Sharing) issue when trying to access your GPT Relay Server from an HTML file opened via the <code>file://</code> protocol.</p>
+        <p>This is a security feature of browsers that prevents web pages from making requests to different domains without proper permission.</p>
+    </div>
+    
+    <div class="card">
+        <h2>Solution 1: Use Tampermonkey's GM_xmlhttpRequest</h2>
+        <p>If you're using a Tampermonkey script, you should use the <code class="highlight">GM_xmlhttpRequest</code> function instead of <code>fetch</code>. This function bypasses CORS restrictions.</p>
+        
+        <div class="code-block">
+            GM_xmlhttpRequest({<br>
+            &nbsp;&nbsp;method: 'POST',<br>
+            &nbsp;&nbsp;url: 'http://localhost:3000/generate',<br>
+            &nbsp;&nbsp;data: JSON.stringify({ prompt: 'Your prompt here' }),<br>
+            &nbsp;&nbsp;headers: {<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;'Content-Type': 'application/json'<br>
+            &nbsp;&nbsp;},<br>
+            &nbsp;&nbsp;onload: function(response) {<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;console.log('Received response:', response.responseText);<br>
+            &nbsp;&nbsp;},<br>
+            &nbsp;&nbsp;onerror: function(error) {<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;console.error('Error:', error);<br>
+            &nbsp;&nbsp;}<br>
+            });
+        </div>
+        
+        <p>Make sure your Tampermonkey script has the proper @grant and @connect declarations:</p>
+        
+        <div class="code-block">
+            // ==UserScript==<br>
+            // @name         Your Script Name<br>
+            // @namespace    http://tampermonkey.net/<br>
+            // @version      0.1<br>
+            // @description  Description<br>
+            // @author       You<br>
+            // @match        *://your-site.com/*<br>
+            // @grant        GM_xmlhttpRequest<br>
+            // @connect      localhost<br>
+            // ==/UserScript==
+        </div>
+    </div>
+    
+    <div class="card">
+        <h2>Solution 2: Use a Chrome Extension with CORS Permissions</h2>
+        <p>If you're developing a Chrome extension, you can request CORS permissions in your manifest.json:</p>
+        
+        <div class="code-block">
+            {<br>
+            &nbsp;&nbsp;"name": "Your Extension",<br>
+            &nbsp;&nbsp;"version": "1.0",<br>
+            &nbsp;&nbsp;"manifest_version": 3,<br>
+            &nbsp;&nbsp;"permissions": ["http://localhost/*"],<br>
+            &nbsp;&nbsp;...<br>
+            }
+        </div>
+    </div>
+    
+    <div class="card">
+        <h2>Solution 3: Update CORS Settings on the Server</h2>
+        <p>If you want to test using regular HTML files, you need to update the CORS settings in your server.</p>
+        <p>In your .env file, update the ALLOWED_ORIGINS to include "*" (to allow all origins) or add your specific file URL:</p>
+        
+        <div class="code-block">
+            # Allow all origins<br>
+            ALLOWED_ORIGINS=*
+        </div>
+        
+        <p>Then restart your server for the changes to take effect.</p>
+    </div>
+    
+    <div class="card">
+        <h2>Solution 4: Open HTML in HTTP Server</h2>
+        <p>Instead of opening the HTML file directly, serve it through a web server. There are many simple options:</p>
+        
+        <div class="code-block">
+            # Using Python (if installed)<br>
+            python -m http.server 8080<br><br>
+            # Using Node.js (with http-server package)<br>
+            npx http-server .
+        </div>
+        
+        <p>Then access your file at http://localhost:8080/test-prompt.html</p>
+    </div>
+    
+    <div class="card">
+        <h2>Test Connection with GM_xmlhttpRequest Simulation</h2>
+        <p>This page simulates the GM_xmlhttpRequest function to test your server connection:</p>
+        
+        <textarea id="promptInput">This is a test prompt for the mock endpoint.</textarea>
+        <button id="testBtn">Test Connection</button>
+        <pre id="resultOutput">Results will appear here...</pre>
+        
+        <script>
+            // Simulate GM_xmlhttpRequest to test connection
+            function simulateGM_xmlhttpRequest(options) {
+                const resultOutput = document.getElementById('resultOutput');
+                resultOutput.textContent = 'Connecting to server...';
+                
+                // Create a script element (JSONP approach to bypass CORS)
+                const script = document.createElement('script');
+                
+                // Generate a unique callback name
+                const callbackName = 'jsonpCallback_' + Math.floor(Math.random() * 1000000);
+                
+                // Create global callback function
+                window[callbackName] = function(data) {
+                    // Clean up
+                    document.head.removeChild(script);
+                    delete window[callbackName];
+                    
+                    // Handle success
+                    if (options.onload) {
+                        options.onload({
+                            status: 200,
+                            responseText: JSON.stringify({reply: data})
+                        });
+                    }
+                };
+                
+                // Set up error handling
+                script.onerror = function() {
+                    // Clean up
+                    document.head.removeChild(script);
+                    delete window[callbackName];
+                    
+                    // Try iframe fallback (another CORS workaround)
+                    tryIframeApproach(options);
+                };
+                
+                // Set the src with callback parameter
+                script.src = `http://localhost:3000/mock-generate?callback=${callbackName}&prompt=${encodeURIComponent(options.data)}`;
+                
+                // Add to document
+                document.head.appendChild(script);
+                
+                // Set timeout
+                setTimeout(function() {
+                    if (window[callbackName]) {
+                        script.onerror();
+                    }
+                }, 5000);
+            }
+            
+            // Fallback method with iframe
+            function tryIframeApproach(options) {
+                const resultOutput = document.getElementById('resultOutput');
+                resultOutput.innerHTML = 'Server not responding to JSONP request. Trying alternative method...<br>';
+                
+                resultOutput.innerHTML += `
+                <br>
+                <strong>CORS Issue Detected:</strong> The server is running, but the browser is blocking direct API requests due to CORS restrictions.
+                <br><br>
+                <strong>Please try one of these solutions:</strong>
+                <ol>
+                    <li>Update your .env file to set ALLOWED_ORIGINS=* and restart the server</li>
+                    <li>Use the Tampermonkey script which bypasses these restrictions with GM_xmlhttpRequest</li>
+                    <li>Serve your HTML files through a web server instead of opening directly</li>
+                </ol>
+                
+                <strong>For Tampermonkey, make sure your script has these lines:</strong>
+                <pre>// @grant        GM_xmlhttpRequest
+// @connect      localhost</pre>
+                `;
+                
+                if (options.onerror) {
+                    options.onerror(new Error("CORS error - see recommendations"));
+                }
+            }
+            
+            // Button click handler
+            document.getElementById('testBtn').addEventListener('click', function() {
+                const prompt = document.getElementById('promptInput').value;
+                
+                simulateGM_xmlhttpRequest({
+                    method: 'POST',
+                    url: 'http://localhost:3000/mock-generate',
+                    data: prompt,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    onload: function(response) {
+                        try {
+                            const data = JSON.parse(response.responseText);
+                            document.getElementById('resultOutput').innerHTML = 
+                                '<span class="success">SUCCESS! Connected to server.</span>\n\n' + 
+                                'Response:\n' + 
+                                JSON.stringify(data, null, 2);
+                        } catch (e) {
+                            document.getElementById('resultOutput').innerHTML = 
+                                '<span class="error">ERROR parsing response:</span>\n\n' + 
+                                response.responseText;
+                        }
+                    },
+                    onerror: function(error) {
+                        document.getElementById('resultOutput').innerHTML = 
+                            '<span class="error">ERROR connecting to server:</span>\n\n' + 
+                            error.toString();
+                    }
+                });
+            });
+        </script>
+    </div>
+    
+    <div class="card">
+        <h2>Fix Summary</h2>
+        <ol>
+            <li><strong>For Tampermonkey script:</strong> Use GM_xmlhttpRequest instead of fetch</li>
+            <li><strong>For server settings:</strong> Set ALLOWED_ORIGINS=* in .env and restart</li>
+            <li><strong>For HTML files:</strong> Serve through an HTTP server instead of opening directly</li>
+        </ol>
+        <p>If you're still having issues, please check the server logs and browser console for more detailed error messages.</p>
+    </div>
+</body>
+</html> 
