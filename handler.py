@@ -43,13 +43,15 @@ def preload_model(model_name="nocturne-swe"):
     except Exception as e:
         print(f"[RunPod] Warning: Could not pre-load model: {e}")
 
+# Get model name from environment
+MODEL_NAME = os.getenv("OLLAMA_MODEL", "nocturne-swe")
+
 # Initialize on worker startup
 if not init_ollama():
     print("[RunPod] WARNING: Ollama initialization failed")
 else:
     # Pre-load model (optional, but recommended)
     # Run in background to avoid blocking startup
-    MODEL_NAME = os.getenv("OLLAMA_MODEL", "nocturne-swe")
     try:
         preload_model(MODEL_NAME)
     except Exception as e:
