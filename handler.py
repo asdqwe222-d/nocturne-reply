@@ -46,10 +46,15 @@ def preload_model(model_name="nocturne-swe"):
 # Initialize on worker startup
 if not init_ollama():
     print("[RunPod] WARNING: Ollama initialization failed")
-
-# Pre-load model (optional, but recommended)
-MODEL_NAME = os.getenv("OLLAMA_MODEL", "nocturne-swe")
-preload_model(MODEL_NAME)
+else:
+    # Pre-load model (optional, but recommended)
+    # Run in background to avoid blocking startup
+    MODEL_NAME = os.getenv("OLLAMA_MODEL", "nocturne-swe")
+    try:
+        preload_model(MODEL_NAME)
+    except Exception as e:
+        print(f"[RunPod] Warning: Could not pre-load model at startup: {e}")
+        print("[RunPod] Model will be loaded on first request")
 
 def handler(event):
     """
