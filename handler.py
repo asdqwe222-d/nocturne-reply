@@ -32,13 +32,71 @@ def init_ollama():
         print(f"[RunPod] Failed to start Ollama: {e}")
         return False
 
+# Check if model exists
+def model_exists(model_name):
+    """Check if model exists in Ollama"""
+    try:
+        result = subprocess.run(['ollama', 'list'], capture_output=True, text=True, timeout=10)
+        return model_name in result.stdout
+    except:
+        return False
+
+# Create model from Modelfile if it doesn't exist
+def create_model_from_modelfile(model_name="nocturne-swe", modelfile_path="/app/Modelfile"):
+    """Create model from Modelfile if it doesn't exist"""
+    if model_exists(model_name):
+        print(f"[RunPod] Model {model_name} already exists")
+        return True
+    
+    try:
+        print(f"[RunPod] Model {model_name} not found, creating from Modelfile...")
+        
+        # First, pull the base model (mistral-nemo:12b-instruct-2407-q4_K_M)
+        print("[RunPod] Pulling base model: mistral-nemo:12b-instruct-2407-q4_K_M")
+        print("[RunPod] This may take 5-10 minutes on first run...")
+        pull_result = subprocess.run(
+            ['ollama', 'pull', 'mistral-nemo:12b-instruct-2407-q4_K_M'],
+            capture_output=True,
+            text=True,
+            timeout=600  # 10 minutes timeout
+        )
+        
+        if pull_result.returncode != 0:
+            print(f"[RunPod] Warning: Failed to pull base model: {pull_result.stderr}")
+            return False
+        
+        print("[RunPod] Base model pulled successfully")
+        
+        # Now create the custom model from Modelfile
+        print(f"[RunPod] Creating {model_name} from Modelfile...")
+        create_result = subprocess.run(
+            ['ollama', 'create', model_name, '-f', modelfile_path],
+            capture_output=True,
+            text=True,
+            timeout=120  # 2 minutes timeout
+        )
+        
+        if create_result.returncode != 0:
+            print(f"[RunPod] Error creating model: {create_result.stderr}")
+            return False
+        
+        print(f"[RunPod] Model {model_name} created successfully")
+        return True
+        
+    except subprocess.TimeoutExpired:
+        print(f"[RunPod] Timeout while creating model {model_name}")
+        return False
+    except Exception as e:
+        print(f"[RunPod] Error creating model: {e}")
+        return False
+
 # Pre-load model on startup
 def preload_model(model_name="nocturne-swe"):
     """Pre-load the model to reduce cold start time"""
     try:
         print(f"[RunPod] Pre-loading model: {model_name}")
         result = subprocess.run(['ollama', 'run', model_name, 'test'], 
-                              capture_output=True, timeout=30)
+                              capture_output=True, timeout=60)
         print(f"[RunPod] Model {model_name} pre-loaded")
     except Exception as e:
         print(f"[RunPod] Warning: Could not pre-load model: {e}")
@@ -50,6 +108,19 @@ MODEL_NAME = os.getenv("OLLAMA_MODEL", "nocturne-swe")
 if not init_ollama():
     print("[RunPod] WARNING: Ollama initialization failed")
 else:
+    # Create model from Modelfile if it doesn't exist
+    # This will pull the base model and create nocturne-swe
+    print(f"[RunPod] Checking if model {MODEL_NAME} exists...")
+    if not model_exists(MODEL_NAME):
+        print(f"[RunPod] Model {MODEL_NAME} not found, creating from Modelfile...")
+        if create_model_from_modelfile(MODEL_NAME):
+            print(f"[RunPod] Model {MODEL_NAME} is ready")
+        else:
+            print(f"[RunPod] WARNING: Failed to create model {MODEL_NAME}")
+            print("[RunPod] Model will be created on first request (may take time)")
+    else:
+        print(f"[RunPod] Model {MODEL_NAME} exists")
+    
     # Pre-load model (optional, but recommended)
     # Run in background to avoid blocking startup
     try:

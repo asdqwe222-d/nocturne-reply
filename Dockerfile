@@ -1,24 +1,28 @@
-FROM ollama/ollama:latest
+FROM python:3.10-slim
 
-# Install Python och dependencies
+# Install system dependencies och Ollama
 RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    python3-venv \
+    curl \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
-# Verify pip3 is installed
-RUN python3 -m pip --version || (apt-get update && apt-get install -y python3-pip && rm -rf /var/lib/apt/lists/*)
+# Install Ollama
+RUN curl -fsSL https://ollama.com/install.sh | sh
 
 WORKDIR /app
 COPY handler.py /app/handler.py
 COPY requirements.txt /app/requirements.txt
+COPY Modelfile /app/Modelfile
 
-RUN python3 -m pip install --no-cache-dir runpod requests
+# Install Python dependencies
+RUN pip install --no-cache-dir runpod requests
 
 # Set environment variables
 ENV OLLAMA_MODEL=nocturne-swe
 ENV OLLAMA_HOST=0.0.0.0:11434
 
+# Expose Ollama port
+EXPOSE 11434
+
 # Start Ollama i bakgrunden och sedan handler
-CMD sh -c "ollama serve & sleep 5 && python3 /app/handler.py"
+CMD sh -c "ollama serve & sleep 5 && python /app/handler.py"
