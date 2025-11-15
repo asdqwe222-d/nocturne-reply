@@ -24,5 +24,5 @@ ENV OLLAMA_HOST=0.0.0.0:11434
 # Expose Ollama port
 EXPOSE 11434
 
-# Start Ollama i bakgrunden och sedan handler
-CMD ["sh", "-c", "ollama serve & sleep 5 && python /app/handler.py"]
+# Start Ollama and handler
+CMD ["sh", "-c", "ollama serve > /tmp/ollama.log 2>&1 & sleep 10 && python /app/handler.py"]
