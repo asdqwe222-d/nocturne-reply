@@ -1,0 +1,60 @@
+# Documentation files (not needed in Docker image)
+*.md
+!README.md
+
+# Node.js files (not needed for Python handler)
+node_modules/
+package.json
+package-lock.json
+*.js
+!runpod-client.js
+
+# HTML test files
+*.html
+
+# Data and logs
+data/
+*.jsonl
+*.json
+!requirements.txt
+!package.json
+
+# Archive
+archive/
+
+# Scripts
+scripts/
+*.bat
+*.sh
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+
+# Environment files
+.env
+.env.*
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# RunPod cache
+.runpod/cache/
+
+# Build artifacts
+dist/
+build/
+
