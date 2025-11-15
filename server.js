@@ -18,7 +18,6 @@ const MAX_HISTORY_ITEMS = 100; // Maximum number of items to store in history
 const RUNPOD_ENDPOINT_URL = process.env.RUNPOD_ENDPOINT_URL || null;
 const RUNPOD_API_KEY = process.env.RUNPOD_API_KEY || null;
 const USE_RUNPOD = process.env.USE_RUNPOD === 'true' && RUNPOD_ENDPOINT_URL && RUNPOD_API_KEY;
-const RUNPOD_FALLBACK = process.env.RUNPOD_FALLBACK === 'true'; // Use RunPod as fallback if local fails
 
 // History storage
 let conversationHistory = [];
@@ -1452,10 +1451,36 @@ Generate ${generateCount} options NOW. Each MUST be 200-280 characters in Englis
 ⚠️ If your reply is under 200 characters, ADD MORE CONTENT - expand on feelings, add details, reference history!`;
 
         let rawResponse = '';
-        let ollamaError = null;
 
-        // Try local Ollama first (unless RunPod is forced)
-        if (!USE_RUNPOD) {
+        // Use RunPod Serverless if explicitly forced (USE_RUNPOD=true)
+        if (USE_RUNPOD && RUNPOD_ENDPOINT_URL && RUNPOD_API_KEY) {
+            try {
+                console.log('[Nocturne] Calling RunPod Serverless...');
+                const runpodResult = await callRunPodServerless(
+                    RUNPOD_ENDPOINT_URL,
+                    RUNPOD_API_KEY,
+                    sanitizedOllamaModel,
+                    prompt,
+                    systemPrompt,
+                    {
+                        temperature: 0.85,
+                        top_p: 0.9,
+                        repeat_penalty: 1.3,
+                        num_ctx: 4096,
+                        num_predict: 600
+                    },
+                    120000 // 2 minute timeout
+                );
+                rawResponse = runpodResult.response;
+                console.log('[Nocturne] RunPod Serverless response received, length:', rawResponse.length);
+                console.log('[Nocturne] RunPod response preview:', rawResponse.substring(0, 500));
+            } catch (error) {
+                console.error('[Nocturne] RunPod Serverless failed:', error.message);
+                console.error('[Nocturne] RunPod error stack:', error.stack);
+                throw error;
+            }
+        } else {
+            // Use local Ollama (default)
             try {
                 console.log('[Nocturne] Calling local Ollama...');
                 const ollamaResp = await fetch(sanitizedOllamaUrl, {
@@ -1485,46 +1510,8 @@ Generate ${generateCount} options NOW. Each MUST be 200-280 characters in Englis
                 rawResponse = ollamaData.response || '';
                 console.log('[Nocturne] Local Ollama response received, length:', rawResponse.length);
             } catch (error) {
-                ollamaError = error;
                 console.warn('[Nocturne] Local Ollama failed:', error.message);
-                
-                // Fallback to RunPod if configured
-                if (!RUNPOD_FALLBACK || !RUNPOD_ENDPOINT_URL || !RUNPOD_API_KEY) {
-                    throw error; // Re-throw if no fallback configured
-                }
-                console.log('[Nocturne] Falling back to RunPod Serverless...');
-            }
-        }
-
-        // Use RunPod Serverless if forced or as fallback
-        if (USE_RUNPOD || (RUNPOD_FALLBACK && ollamaError && RUNPOD_ENDPOINT_URL && RUNPOD_API_KEY)) {
-            try {
-                console.log('[Nocturne] Calling RunPod Serverless...');
-                const runpodResult = await callRunPodServerless(
-                    RUNPOD_ENDPOINT_URL,
-                    RUNPOD_API_KEY,
-                    sanitizedOllamaModel,
-                    prompt,
-                    systemPrompt,
-                    {
-                        temperature: 0.85,
-                        top_p: 0.9,
-                        repeat_penalty: 1.3,
-                        num_ctx: 4096,
-                        num_predict: 600
-                    },
-                    120000 // 2 minute timeout
-                );
-                rawResponse = runpodResult.response;
-                console.log('[Nocturne] RunPod Serverless response received, length:', rawResponse.length);
-            } catch (error) {
-                console.error('[Nocturne] RunPod Serverless failed:', error.message);
-                if (ollamaError) {
-                    // Both failed
-                    throw new Error(`Both local Ollama and RunPod failed. Local: ${ollamaError.message}, RunPod: ${error.message}`);
-                } else {
-                    throw error;
-                }
+                throw error;
             }
         }
 
@@ -1838,15 +1825,13 @@ app.listen(PORT, () => {
   
   // RunPod configuration status
   if (USE_RUNPOD) {
-    console.log('🌐 RunPod Serverless: ENABLED (forced mode)');
+    console.log('🌐 RunPod Serverless: ENABLED');
     console.log(`   Endpoint: ${RUNPOD_ENDPOINT_URL ? RUNPOD_ENDPOINT_URL.substring(0, 50) + '...' : 'NOT SET'}`);
-  } else if (RUNPOD_FALLBACK && RUNPOD_ENDPOINT_URL && RUNPOD_API_KEY) {
-    console.log('🌐 RunPod Serverless: ENABLED (fallback mode)');
-    console.log(`   Endpoint: ${RUNPOD_ENDPOINT_URL.substring(0, 50)}...`);
-    console.log('   Will fallback to RunPod if local Ollama fails');
   } else {
-    console.log('🌐 RunPod Serverless: DISABLED');
-    if (!RUNPOD_ENDPOINT_URL || !RUNPOD_API_KEY) {
+    console.log('🌐 RunPod Serverless: DISABLED (using local Ollama)');
+    if (RUNPOD_ENDPOINT_URL && RUNPOD_API_KEY) {
+      console.log('   (Set USE_RUNPOD=true in .env to enable RunPod)');
+    } else {
       console.log('   (Set RUNPOD_ENDPOINT_URL and RUNPOD_API_KEY in .env to enable)');
     }
   }

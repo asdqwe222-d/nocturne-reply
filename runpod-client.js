@@ -57,11 +57,16 @@ async function callRunPodServerless(endpointUrl, apiKey, model, prompt, systemPr
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error('[RunPod] API error:', response.status, errorText);
+            console.error('[RunPod] API error:', response.status);
+            console.error('[RunPod] Error details:', errorText);
+            console.error('[RunPod] Request body was:', JSON.stringify(requestBody, null, 2).substring(0, 1000));
             throw new Error(`RunPod API error: ${response.status} - ${errorText}`);
         }
 
         const data = await response.json();
+
+        // Log full response for debugging
+        console.log('[RunPod] Full response:', JSON.stringify(data, null, 2).substring(0, 1000));
 
         // RunPod Serverless returns data in different formats depending on configuration
         // Check for common response formats
@@ -70,29 +75,40 @@ async function callRunPodServerless(endpointUrl, apiKey, model, prompt, systemPr
         if (data.output && typeof data.output === 'string') {
             // Direct string output
             responseText = data.output;
+            console.log('[RunPod] Found string output');
         } else if (data.output && data.output.response) {
             // Ollama-style response
             responseText = data.output.response;
+            console.log('[RunPod] Found output.response');
+        } else if (data.output && typeof data.output === 'object' && data.output.text) {
+            // Some workers return {output: {text: "..."}}
+            responseText = data.output.text;
+            console.log('[RunPod] Found output.text');
         } else if (data.output && Array.isArray(data.output)) {
             // Array of outputs
             responseText = data.output.map(o => o.response || o.text || o).join('\n');
+            console.log('[RunPod] Found array output');
         } else if (data.response) {
             // Direct response field
             responseText = data.response;
+            console.log('[RunPod] Found direct response');
         } else if (data.text) {
             // Text field
             responseText = data.text;
+            console.log('[RunPod] Found text field');
         } else {
-            console.warn('[RunPod] Unexpected response format:', JSON.stringify(data).substring(0, 200));
+            console.error('[RunPod] Unexpected response format. Full data:', JSON.stringify(data, null, 2));
             // Try to extract any text from the response
             responseText = JSON.stringify(data);
         }
 
         if (!responseText || responseText.trim().length === 0) {
+            console.error('[RunPod] Empty response. Full data:', JSON.stringify(data, null, 2));
             throw new Error('RunPod returned empty response');
         }
 
         console.log('[RunPod] Response received, length:', responseText.length);
+        console.log('[RunPod] Response preview:', responseText.substring(0, 500));
         return { response: responseText };
 
     } catch (error) {
