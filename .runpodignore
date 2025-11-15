@@ -1,0 +1,7 @@
+node_modules/
+data/
+archive/
+scripts/
+*.html
+.git/
+
