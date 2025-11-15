@@ -1,0 +1,19 @@
+version: 1.0
+name: nocturne-ollama-serverless
+description: Ollama serverless endpoint for nocturne-swe model
+
+build:
+  dockerfile: Dockerfile
+  context: .
+
+container:
+  disk: 20
+  
+worker:
+  gpu_type: RTX_3090
+  max_workers: 1
+  
+env:
+  OLLAMA_MODEL: nocturne-swe
+  OLLAMA_HOST: 0.0.0.0:11434
+
